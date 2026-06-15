@@ -9,8 +9,15 @@ window.fetch = async function(...args) {
   if (typeof url === 'string' && url.includes('/x/web-interface/wbi/index/top/feed/rcmd')) {
     const currentMode = document.documentElement.getAttribute('data-tabula-mode') || 'pure';
 
-    if (currentMode === 'pure' || currentMode === 'origin') {
+    if (currentMode === 'origin') {
+      // 个性模式：完全透传
       return nativeFetch(...args);
+    }
+
+    if (currentMode === 'pure') {
+      // Firefox 版：直接在 fetch 层去掉 Cookie，绕过不可靠的 DNR modifyHeaders remove
+      const options = args[1] ? { ...args[1] } : { credentials: 'omit' };
+      return nativeFetch.call(window, args[0], options);
     }
 
     if (currentMode === 'mixed') {
