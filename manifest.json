@@ -1,8 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "TabulaBili-Plus (初见哔哩增强版)",
+  "name": "TabulaBili-Plus (初见哔哩增强版) [Firefox]",
   "version": "1.2.0",
   "author": "去年夏天",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "tabulabili-firefox@tjsky.github",
+      "strict_min_version": "128.0"
+    }
+  },
   "description": "通过精细化控制网络请求与首屏加载，提供纯净、刷新、混合等多维度的B站首页大盘推荐流体验，打破信息茧房。",
   "permissions": [
     "storage",

@@ -1,6 +1,6 @@
 
-// 核心网络拦截规则动态编译器
-function compileDynamicNetworkRules(mode, tabId = null) {
+// Firefox 版：核心网络拦截规则动态编译器（无 tabIds 依赖）
+function compileDynamicNetworkRules(mode) {
   chrome.storage.local.get(['bili_fingerprint'], (res) => {
     const fingerprint = res.bili_fingerprint || '';
     const ruleIdsToRemove = [100];
@@ -15,29 +15,27 @@ function compileDynamicNetworkRules(mode, tabId = null) {
         requestHeaders: [{ header: "cookie", operation: "remove" }]
       };
     } else {
+      // refresh/mixed：设置指纹 Cookie（仅保留 buvid3/4）
       ruleAction = {
         type: "modifyHeaders",
-        requestHeaders: [{ 
-          header: "cookie", 
-          operation: "set", 
+        requestHeaders: [{
+          header: "cookie",
+          operation: "set",
           value: fingerprint
         }]
       };
     }
 
-    const addRulesArray = [{
-      id: 100,
-      priority: 2,
-      action: ruleAction,
-      condition: {
-        urlFilter: "||api.bilibili.com/x/web-interface/wbi/index/top/feed/rcmd",
-        ...(tabId && { tabIds: [tabId] })
-      }
-    }];
-
     chrome.declarativeNetRequest.updateSessionRules({
       removeRuleIds: ruleIdsToRemove,
-      addRules: addRulesArray
+      addRules: [{
+        id: 100,
+        priority: 2,
+        action: ruleAction,
+        condition: {
+          urlFilter: "||api.bilibili.com/x/web-interface/wbi/index/top/feed/rcmd"
+        }
+      }]
     });
   });
 }
@@ -68,28 +66,13 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-let tabRequestCounters = {};
-
+// Firefox 版：混合模式在 content-main.js 中本地交替，此处只处理 refresh 模式的 DNR 编译
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "evaluateMixedRequest") {
     chrome.storage.local.get(['bili_mode'], (res) => {
       const mode = res.bili_mode || 'pure';
-      
-      if (mode === 'mixed' && sender.tab) {
-        const tabId = sender.tab.id;
-        
-        if (!tabRequestCounters[tabId]) tabRequestCounters[tabId] = 0;
-        tabRequestCounters[tabId]++;
-        
-        const isOdd = (tabRequestCounters[tabId] % 2 !== 0);
-        
-        if (isOdd) {
-          compileDynamicNetworkRules('mixed', tabId);
-        } else {
-          chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [100] });
-        }
-        sendResponse({ active: isOdd });
-      } else if (mode === 'refresh') {
+
+      if (mode === 'refresh') {
         compileDynamicNetworkRules('refresh');
         sendResponse({ active: true });
       } else {
@@ -97,12 +80,5 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     });
     return true;
-  }
-});
-
-// 释放内存，防止内存泄漏
-chrome.tabs.onRemoved.addListener((tabId) => {
-  if (tabRequestCounters[tabId]) {
-    delete tabRequestCounters[tabId];
   }
 });
